@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
+import { useAccount, useWriteContract, useBalance } from "wagmi";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
 import sdk, {
   AddFrame,
   SignIn as SignInCore,
@@ -22,17 +25,92 @@ import { createStore } from "mipd";
 import { Label } from "~/components/ui/label";
 import { PROJECT_TITLE } from "~/lib/constants";
 
-function ExampleCard() {
+function PizzaDonationCard() {
+  const { address } = useAccount();
+  const { data: balance } = useBalance({ address });
+  const [amount, setAmount] = useState("");
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [txHash, setTxHash] = useState<string | null>(null);
+  
+  const { writeContract, isPending, isSuccess, error } = useWriteContract();
+
+  const handleDonate = useCallback(() => {
+    if (!amount || !tokenAddress) return;
+    
+    writeContract({
+      abi: [{
+        inputs: [
+          { name: "recipient", type: "address" },
+          { name: "amount", type: "uint256" }
+        ],
+        name: "transfer",
+        type: "function"
+      }],
+      address: tokenAddress as `0x${string}`,
+      functionName: "transfer",
+      args: ["0xaf48c7e443b7c17F226DD381e3C4Ed73E66788da", 
+            BigInt(Number(amount) * 10**18)],
+      chainId: base.id
+    });
+  }, [amount, tokenAddress, writeContract]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Welcome to the Frame Template</CardTitle>
+        <CardTitle>🍕 Berlin Pizza Fund</CardTitle>
         <CardDescription>
-          This is an example card that you can customize or remove
+          Contribute ERC20 tokens to feed Farcaster devs!
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Label>Place content in a Card here.</Label>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Your Wallet Address</Label>
+          <Input value={address || "Not connected"} disabled />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Token Contract Address</Label>
+          <Input
+            value={tokenAddress}
+            onChange={(e) => setTokenAddress(e.target.value)}
+            placeholder="0x..."
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Amount to Send</Label>
+          <Input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="1.0"
+            step="0.1"
+          />
+        </div>
+
+        <Button 
+          onClick={handleDonate}
+          disabled={isPending || !amount || !tokenAddress}
+        >
+          {isPending ? "Sending..." : "Send Pizza Funds"}
+        </Button>
+
+        {isSuccess && (
+          <div className="text-green-500">
+            Payment sent successfully! 🎉
+          </div>
+        )}
+        {error && (
+          <div className="text-red-500">
+            Error: {error.message}
+          </div>
+        )}
+        
+        {txHash && (
+          <div className="text-sm text-muted-foreground">
+            TX: {truncateAddress(txHash)}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -137,7 +215,7 @@ export default function Frame() {
       }}
     >
       <div className="w-[300px] mx-auto py-2 px-2">
-        <ExampleCard />
+        <PizzaDonationCard />
       </div>
     </div>
   );
